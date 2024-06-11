@@ -1,7 +1,7 @@
 from dataset_downloader import IMDBDatasetDownloader
 from hdfs_manager import HDFSManager
 from pipeline import IMDbDataPipeline
-
+from data_validator import DataValidator  # Import the DataValidator class
 
 # Get values from environment variables
 hdfs_base_dir = "/imdb"  # Base directory in HDFS to store IMDb data
@@ -25,12 +25,26 @@ if __name__ == "__main__":
     hdfs_user = "root"
 
     manager = HDFSManager(hdfs_url, hdfs_user)
-
     manager.create_directory("/user/root/imdb")
-
     manager.list_directory("/user/root/imdb")
 
     # Step 3: Run the data pipeline
     pipeline = IMDbDataPipeline(imdb_tsv_local_path, hdfs_imdb_path, mongo_uri, "mydb", "name_basics")
     pipeline.run()
 
+    # Step 4: Data Validation
+    spark = pipeline.spark  # Get the SparkSession object from the pipeline
+
+    validator = DataValidator(spark, hdfs_imdb_path, mongo_uri, "mydb", "name_basics")
+
+    # Validate data in HDFS
+    hdfs_validation_result = validator.validate_hdfs_data()
+    hdfs_validation_result.show()
+
+    # Validate data in MongoDB
+    mongo_validation_result = validator.validate_mongodb_data()
+    mongo_validation_result.show()
+
+    # Compare data between HDFS and MongoDB
+    comparison_result = validator.compare_data()
+    comparison_result.show()

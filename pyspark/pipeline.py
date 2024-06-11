@@ -38,10 +38,10 @@ class IMDbDataPipeline:
         return df
 
     def transform_data(self, df):
-        # Example transformation: extract the year from birthYear
+        # extract the year from birthYear
         df = df.withColumn("birthYear", col("birthYear").cast("int"))
         
-        # Example aggregation: count number of knownForTitles per person
+        # count number of knownForTitles per person
         df = df.withColumn("numKnownForTitles", col("knownForTitles").isNotNull().cast("int"))
         
         return df
