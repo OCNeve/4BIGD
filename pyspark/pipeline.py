@@ -2,6 +2,11 @@ import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when
 from pymongo import MongoClient
+import os
+import sys
+
+os.environ['PYSPARK_PYTHON'] = sys.executable
+os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
 class IMDbDataPipeline:
     def __init__(self, imdb_tsv_path, hdfs_path, mongo_uri, mongo_db, mongo_collection):
@@ -10,14 +15,14 @@ class IMDbDataPipeline:
             .config("spark.executorEnv.JAVA_HOME", "/usr/lib/jvm/java-8-openjdk-amd64") \
             .config("spark.mongodb.input.uri", mongo_uri) \
             .config("spark.mongodb.output.uri", mongo_uri) \
-            .config("spark.jars", "/home/mongo-spark-connector_2.13-10.3.0.jar") \
+            .config("spark.jars", "/opt/spark/jars/mongo-spark-connector_2.13-10.3.0.jar") \
+            .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:3.0.1") \
             .getOrCreate()
-
         self.imdb_tsv_path = imdb_tsv_path
         self.hdfs_path = hdfs_path
-        self.mongo_client = MongoClient(mongo_uri)
-        self.mongo_db = self.mongo_client[mongo_db]
-        self.mongo_collection = self.mongo_db[mongo_collection]
+        self.mongo_uri = mongo_uri
+        self.mongo_db = mongo_db
+        self.mongo_collection = mongo_collection
 
     def read_data(self):
         return self.spark.read.option("header", "true").option("sep", "\t").csv(self.imdb_tsv_path)
@@ -46,7 +51,10 @@ class IMDbDataPipeline:
         print(f"Data saved to HDFS at {self.hdfs_path}")
 
     def save_to_mongodb(self, df):
-        df.write.format("mongo").mode("overwrite").save()
+        # Set the MongoDB collection name
+        output_uri = f"{self.mongo_uri}.{self.mongo_collection}"
+        # Write DataFrame to MongoDB
+        df.write.format("mongo").mode("overwrite").option("uri", output_uri).save()
         print("Data saved to MongoDB")
 
     def run(self):
@@ -56,5 +64,3 @@ class IMDbDataPipeline:
         
         self.save_to_hdfs(df)
         self.save_to_mongodb(df)
-
-
